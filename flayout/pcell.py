@@ -4,8 +4,8 @@ __all__ = ['pcell']
 
 # Internal Cell
 from functools import partial
-from inspect import Parameter, Signature, signature
-from typing import Callable, Optional
+from inspect import Parameter
+from typing import Any, Callable, Optional
 
 import pya
 from .cell import copy_tree
@@ -143,22 +143,57 @@ def _validate_parameter(name, param):
         annotation=annotation,
     )
 
-def _pcell_parameters(func: Callable, on_error="raise"):
-    sig = signature(func)
-    params = sig.parameters
-    on_error = _validate_on_error(on_error)
-    new_params = {
-        "name": Parameter(
-            "name", kind=Parameter.KEYWORD_ONLY, default=func.__name__, annotation=str
-        )
-    }
-    for name, param in params.items():
+
+class DynamicPCell(pya.PCellDeclarationHelper):
+    """PCell class to create a PCell from a function."""
+    def __init__(self, func: Callable):
+        f"""a {func().name} PCell."""
+        super().__init__()
+        self.func = func
+        self.func_name = func().name
+        params = self._pcell_parameters(self.func, on_error="raise")
+        self._param_keys = [param for param in params.keys()]
+        self._param_values = []
+        for name, param in params.items():
+            # Add the parameter to the PCell
+            self._param_values.append(
+                self.param(
+                    name=name,
+                    value_type=_klayout_type(param),
+                    description=name.replace("_", " "),
+                    default=param.default,
+                )
+            )
+
+    def produce_impl(self):
+        """Produce the PCell."""
+        params = {k: v for k, v in zip(self._param_keys, self._param_values)}
+        cell = self.func(**params)
+
+        # Add the cell to the layout
+        copy_tree(cell, self.cell, on_same_name="replace")
+        self.cell.name = self.func_name
+
+    def _pcell_parameters(self, func: Callable, on_error="ignore"):
+        """Get the parameters of a function."""
+        # NOTE: There could be a better way to do this, than use __signature__.
+        new_params = {}
+
         try:
-            new_params[name] = _validate_parameter(name, param)
-        except ValueError:
-            if on_error == "raise":
-                raise
-    return new_params
+            sig = func.__signature__
+        except AttributeError:
+            return new_params
+
+        new_params.update({'name': Parameter('name', kind=Parameter.KEYWORD_ONLY, default=self.func_name, annotation=str)})
+        params = sig.parameters
+        on_error = _validate_on_error(on_error)
+        for name, param in params.items():
+            try:
+                new_params[name] = _validate_parameter(name, param)
+            except ValueError:
+                if on_error == "raise":
+                    raise
+        return new_params
 
 # Cell
 
@@ -174,61 +209,4 @@ def pcell(func=None, on_error="raise"):
     if func is None:
         return partial(pcell, on_error=on_error)
 
-    params = _pcell_parameters(func, on_error=on_error)
-
-
-    def init(self):
-        pya.PCellDeclarationHelper.__init__(self)
-        self._params = {}
-        for name, param in params.items():
-            self.param(
-                name=name,
-                value_type=_klayout_type(param),
-                description=name.replace("_", " "),
-                default=param.default,
-            )
-            self._params[name] = param
-        self.func = func
-
-    def call(self, **kwargs):
-        name = kwargs.pop("name", (self.name or func.__name__))
-        try:
-            obj = self.func(**kwargs, name=name)
-        except TypeError:
-            obj = self.func(**kwargs)
-        obj.name = name
-        return obj
-
-    def produce_impl(self):
-        kwargs = {}
-        for name, param in self._params.items():
-            v = getattr(self, name)
-            if v is None:
-                v = param.default
-            if v is Parameter.empty:
-                continue
-            kwargs[name] = v
-        print(kwargs)
-        cell = self(**kwargs)
-        copy_tree(cell, self.cell, on_same_name="replace")
-
-    def display_text_impl(self):
-        return f"{self.name}<{self.__class__.__name__}>"
-
-    DynamicPCell = type(
-        func.__name__,
-        (pya.PCellDeclarationHelper,),
-        {
-            "__init__": init,
-            "__call__": call,
-            "__doc__": func.__doc__
-            if func.__doc__ is not None
-            else f"a {func.__name__} PCell.",
-            "produce_impl": produce_impl,
-            "display_text_impl": display_text_impl,
-        },
-    )
-    pcell = DynamicPCell()
-    pcell.__signature__ = Signature(list(params.values()), return_annotation=pya.Cell)
-    pcell.name = func.__name__
-    return pcell
+    return DynamicPCell(func)
