@@ -51,10 +51,14 @@ def get_lyp_path(path: Optional[str] = None):
     path = os.path.abspath(os.path.expanduser(path))
     if os.path.isdir(path):
         possible_paths = glob.glob(f"{path}/*.lyp")
-        if not possible_paths:
-            path = get_lyp_path(pkg_resources.resource_filename("flayout", "layers.lyp"))
-        else:
-            path = possible_paths[0]
+        path = (
+            possible_paths[0]
+            if possible_paths
+            else get_lyp_path(
+                pkg_resources.resource_filename("flayout", "layers.lyp")
+            )
+        )
+
     return path
 
 # Cell
@@ -120,8 +124,7 @@ def get_lyp(
     else:
         layer, datatype, *_ = layer_info
     lyps = read_lyp(path=path)
-    lyp = lyps.get((layer, datatype), lyps[0, 0])
-    return lyp
+    return lyps.get((layer, datatype), lyps[0, 0])
 
 # Internal Cell
 def _get_range(box: Union[pya.Box, pya.DBox]) -> Tuple[float, float, float, float, float, float]:
@@ -545,5 +548,4 @@ def draw_layout(plot, layout):
     Returns:
         the (inplace) modified plot with containing the layout
     """
-    plots = bp.Column(*[draw_cell(plot, cell) for cell in layout.top_cells()])
-    return plots
+    return bp.Column(*[draw_cell(plot, cell) for cell in layout.top_cells()])

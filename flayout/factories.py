@@ -25,7 +25,7 @@ from .cell import (
 
 # Cell
 def layer(lr: int, dt: int, name: str = "") -> pya.LayerInfo:
-    layer = pya.LayerInfo(int(lr), int(dt))
+    layer = pya.LayerInfo(lr, dt)
     if name:
         layer.name = name
     return layer
@@ -178,7 +178,7 @@ def cell(
                 if type(shape).__name__ == 'ndarray': # yeah... I don't want to import numpy...
                     lrshapes[i] = polygon(shape)
 
-            for i, shape in enumerate(lrshapes):  # TODO: insert all at once?
+            for shape in lrshapes:
                 cell.shapes(lr).insert(shape)
     if child_cells:
         cell_idxs = {}
@@ -197,10 +197,9 @@ def cell(
                 cell.insert(pya.CellInstArray(idx, ref.trans))
             elif isinstance(ref, PCellReference):
                 raise ValueError(
-                    f"One can only add pcells belonging to a library to to a new cell. "
-                    f"Add a pcell reference using the following string format to "
-                    f"represent the cell: '<libname>.<pcellname>'."
+                    "One can only add pcells belonging to a library to to a new cell. Add a pcell reference using the following string format to represent the cell: '<libname>.<pcellname>'."
                 )
+
             elif isinstance(ref, PCellLibReference):
                 # don't store index in cell_idxs... PCell belongs to library and will not be copied.
                 idx = _add_lib_pcell_to_layout(layout, ref.lib, ref.cell, ref.params)

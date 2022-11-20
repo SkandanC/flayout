@@ -55,7 +55,7 @@ def _klayout_type(param: Parameter):
             annotation = type(param.default)
     except AttributeError:
         annotation = param
-    if not annotation in type_map:
+    if annotation not in type_map:
         raise ValueError(
             f"Cannot create pcell. Parameter {param.name!r} has unsupported type: {annotation!r}"
         )
@@ -99,7 +99,7 @@ def _python_type(param: Parameter):
             annotation = type(param.default)
     except AttributeError:
         annotation = param
-    if not annotation in type_map:
+    if annotation not in type_map:
         raise ValueError(
             f"Cannot create pcell. Parameter {param.name!r} has unsupported type: {annotation!r}"
         )
@@ -109,27 +109,31 @@ def _python_type(param: Parameter):
 
 def _validate_on_error(on_error):
     on_error = on_error.lower()
-    if not on_error in ["raise", "ignore"]:
+    if on_error not in ["raise", "ignore"]:
         raise ValueError("on_error should be 'raise' or 'ignore'.")
     return on_error
 
 def _validate_parameter(name, param):
     if param.kind == Parameter.VAR_POSITIONAL:
         raise ValueError(
-            f"Cannot create pcell from functions with var positional [*args] arguments."
+            "Cannot create pcell from functions with var positional [*args] arguments."
         )
+
     elif param.kind == Parameter.VAR_KEYWORD:
         raise ValueError(
-            f"Cannot create pcell from functions with var keyword [**kwargs] arguments."
+            "Cannot create pcell from functions with var keyword [**kwargs] arguments."
         )
+
     elif param.kind == Parameter.POSITIONAL_ONLY:
         raise ValueError(
-            f"Cannot create pcell from functions with positional arguments. Please use keyword arguments."
+            "Cannot create pcell from functions with positional arguments. Please use keyword arguments."
         )
+
     elif (param.kind == Parameter.POSITIONAL_OR_KEYWORD) and (param.default is Parameter.empty):
         raise ValueError(
-            f"Cannot create pcell from functions with positional arguments. Please use keyword arguments."
+            "Cannot create pcell from functions with positional arguments. Please use keyword arguments."
         )
+
     annotation = _python_type(_klayout_type(_python_type(param)))
     default = param.default
     try:
