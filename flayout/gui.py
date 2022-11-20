@@ -22,8 +22,20 @@ def instance(
 
     rect = np.array([(-width/2, -height/2), (width/2, -height/2), (width/2, height/2), (-width/2, height/2)])
     port = np.array([(-port_size/2, -port_size/2), (port_size/2, -port_size/2), (port_size/2, port_size/2), (-port_size/2, port_size/2)])
-    input_ports = np.array([port + np.array([-width/2, y]) for i, y in enumerate(np.linspace(-width/2, width/2, num_inputs + 2)[1:-1])])
-    output_ports = np.array([port + np.array([width/2, y]) for i, y in enumerate(np.linspace(-width/2, width/2, num_inputs + 2)[1:-1])])
+    input_ports = np.array(
+        [
+            port + np.array([-width / 2, y])
+            for y in np.linspace(-width / 2, width / 2, num_inputs + 2)[1:-1]
+        ]
+    )
+
+    output_ports = np.array(
+        [
+            port + np.array([width / 2, y])
+            for y in np.linspace(-width / 2, width / 2, num_inputs + 2)[1:-1]
+        ]
+    )
+
 
 
     cell = fl.cell(

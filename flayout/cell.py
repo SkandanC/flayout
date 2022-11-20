@@ -102,8 +102,9 @@ def reference(*args) -> Union[Reference, LibReference, PCellReference, PCellLibR
         args = (
             arg
             for arg in args
-            if not (str(arg) == cell_str or arg is cell or arg is lib)
+            if str(arg) != cell_str and arg is not cell and arg is not lib
         )
+
         return reference(cell, lib, *args)
 
     lib = _get_object_from_type(args, pya.Library)
@@ -135,9 +136,7 @@ def _get_object_from_type(objs, cls, default=None):
             f"Only one argument of type {cls.__name__!r} expected. "
             f"Got: {', '.join(repr(s) for s in selected)}."
         )
-    if not selected:
-        return default
-    return selected[0]
+    return selected[0] if selected else default
 
 # Internal Cell
 def _copy_klayout(source, dest, on_same_name, depth=0):
@@ -181,13 +180,14 @@ def _copy_gdspy(source, dest, on_same_name, depth=0):
             dest.shapes(dest_idx).insert(
                 pya.DPolygon([pya.DPoint(x, y) for x, y in arr])
             )
-        for arr in source.get_paths(depth=1):
+        for _ in source.get_paths(depth=1):
             raise NotImplementedError("Cannot convert native gdspy paths (yet).")
 
     source_cells_map = {}
     child_cells = sorted(
-        set(ref.ref_cell for ref in source.references), key=lambda c: c.name
+        {ref.ref_cell for ref in source.references}, key=lambda c: c.name
     )
+
     for current_cell in child_cells:
         if on_same_name == "skip" and dest_layout.has_cell(current_cell.name):
             source_cells_map[current_cell.name] = dest_layout.cell_by_name(
@@ -243,7 +243,7 @@ def copy_tree(source: pya.Cell, dest: pya.Cell, on_same_name: str = "skip"):
 def _validate_on_same_name(on_same_name):
     on_same_name = on_same_name.lower()
     allowed_on_same_name = ["skip", "replace", "add_suffix"]
-    if not on_same_name in allowed_on_same_name:
+    if on_same_name not in allowed_on_same_name:
         raise ValueError(
             "on_same_name should be one of the following: "
             f"{', '.join(repr(key) for key in allowed_on_same_name)}."
@@ -280,9 +280,8 @@ def _add_lib_cell_to_layout(layout: pya.Layout, lib: pya.Library, cell: pya.Cell
     pcell = cell.pcell_declaration()
     if pcell is not None:
         return _add_lib_pcell_to_layout(layout, lib, pcell, cell.pcell_parameters())
-    else:
-        cell_idx = lib.layout().cell_by_name(cell.name)
-        return layout.add_lib_cell(lib, cell_idx)
+    cell_idx = lib.layout().cell_by_name(cell.name)
+    return layout.add_lib_cell(lib, cell_idx)
 
 
 def _add_cell_to_layout(
@@ -317,9 +316,10 @@ def add_pcells_to_layout(layout, pcells):
 
 def _get_pcell_param_value(params, param):
     value = params.get(param.name, param.default)
-    if param.type == pya.PCellDeclarationHelper.TypeLayer:
-        if not isinstance(value, pya.LayerInfo):
-            value = pya.LayerInfo(*value)
+    if param.type == pya.PCellDeclarationHelper.TypeLayer and not isinstance(
+        value, pya.LayerInfo
+    ):
+        value = pya.LayerInfo(*value)
     return value
 
 def _add_lib_pcell_to_layout(
